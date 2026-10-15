@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "对照证据、加固核查位与威胁台账"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "金银湖安全中心"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "安全中心"
+    }
+  ]
+}
