@@ -449,10 +449,10 @@ export struct ScanView {
       }
     }
     if (id === 'P1') {
-      return '伪造 profile 能否让安装器收下湖畔笔记';
+      return '伪造 profile 能否让安装器收下笔记';
     }
     if (id === 'P2') {
-      return '湖畔笔记 filesDir 是否能被本进程读到';
+      return '笔记 filesDir 是否能被本进程读到';
     }
     if (id === 'P3') {
       return '安全组件放行条件只由调用方自报';

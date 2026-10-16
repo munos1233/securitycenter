@@ -14,11 +14,11 @@
     },
     {
       "name": "perm_bundle_reason",
-      "value": "读取湖畔笔记的安装版本，核对检测报告"
+      "value": "读取笔记的安装版本，核对检测报告"
     },
     {
       "name": "perm_install_reason",
-      "value": "卸载已被伪造包替换的湖畔笔记"
+      "value": "卸载已被伪造包替换的笔记"
     }
   ]
 }

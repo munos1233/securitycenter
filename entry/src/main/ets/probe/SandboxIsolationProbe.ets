@@ -87,7 +87,7 @@ export function judgeSandbox(attempts: AttemptFacts[]): SandboxJudge {
 export class SandboxIsolationProbe implements Probe {
   id: ProbeId = 'P2';
   title: string = '沙箱隔离';
-  risk: string = '湖畔笔记 filesDir 是否能被本进程读到';
+  risk: string = '笔记 filesDir 是否能被本进程读到';
   level: ProofLevel = 'L1';
 
   async run(ctx: common.UIAbilityContext): Promise<ProbeResult> {

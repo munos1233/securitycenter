@@ -28,7 +28,7 @@ const VERSION_KEY: string = '"versionCode"';
 export class InstallIntegrityProbe implements Probe {
   id: ProbeId = 'P1';
   title: string = '安装完整性';
-  risk: string = '伪造 profile 能否让安装器收下湖畔笔记';
+  risk: string = '伪造 profile 能否让安装器收下笔记';
   level: ProofLevel = 'L2';
 
   async run(_ctx: common.UIAbilityContext): Promise<ProbeResult> {

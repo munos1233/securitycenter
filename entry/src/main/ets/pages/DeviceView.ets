@@ -139,7 +139,7 @@ export struct DeviceView {
     let rows: InfoRow[] = [];
     rows.push(infoRow('系统版本', this.osName));
     rows.push(infoRow('设备时间', this.boardClock.length > 0 ? shortStamp(this.boardClock) : '尚未读到'));
-    rows.push(infoRow('湖畔笔记', this.bundleText));
+    rows.push(infoRow('笔记', this.bundleText));
     rows.push(infoRow('设备 UDID', this.probeShelf.boardUdid.length > 0 ? this.probeShelf.boardUdid : '未登记'));
     return rows;
   }

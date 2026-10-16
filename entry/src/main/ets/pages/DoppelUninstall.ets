@@ -32,13 +32,13 @@ export struct DoppelUninstall {
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
           .fontColor(Theme.danger)
-        Text('湖畔笔记已被同名伪造包替换。笔记已备份。')
+        Text('笔记已被同名伪造包替换。笔记已备份。')
           .width('100%')
           .fontSize(14)
           .fontColor(Theme.text)
           .lineHeight(20)
           .margin({ top: 8 })
-        Button(this.busy ? '正在卸载' : '卸载湖畔笔记')
+        Button(this.busy ? '正在卸载' : '卸载笔记')
           .type(ButtonType.Capsule)
           .width('100%')
           .height(40)
@@ -80,7 +80,7 @@ export struct DoppelUninstall {
       return;
     }
     this.getUIContext().getPromptAction().showDialog({
-      message: '将卸载湖畔笔记。笔记已备份。',
+      message: '将卸载笔记。笔记已备份。',
       buttons: [
         { text: '取消', color: Theme.muted },
         { text: '卸载', color: Theme.danger }
@@ -108,7 +108,7 @@ export struct DoppelUninstall {
     }).then((): void => {
       this.busy = false;
       this.tick = this.tick + 1;
-      LiveStore.setStatus('已卸载湖畔笔记，笔记已备份');
+      LiveStore.setStatus('已卸载笔记，笔记已备份');
       this.notice = '';
     }).catch((err: Object) => {
       hilog.error(DOMAIN, TAG, 'uninstall %{public}s', JSON.stringify(err));
