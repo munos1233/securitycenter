@@ -60,6 +60,65 @@ export class FileExchange {
     }
   }
 
+  static async pickSidecar(ctx: common.UIAbilityContext): Promise<IoResult> {
+    let result = new IoResult();
+    try {
+      let options = new picker.DocumentSelectOptions();
+      options.fileSuffixFilters = ['检测报告|.json'];
+      let view = new picker.DocumentViewPicker(ctx);
+      let uris = await view.select(options);
+      if (uris.length === 0) {
+        result.message = '未导入';
+        return result;
+      }
+      return FileExchange.readUri(uris[0]);
+    } catch (err) {
+      hilog.error(0x4A59, 'FileExchange', 'sidecar %{public}s', JSON.stringify(err));
+      result.message = '检测报告读取失败';
+      return result;
+    }
+  }
+
+  private static readUri(uri: string): IoResult {
+    let result = new IoResult();
+    try {
+      let file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
+      try {
+        let stat = fileIo.statSync(file.fd);
+        if (stat.size <= 0 || stat.size > 1000000) {
+          FileExchange.closeQuiet(file);
+          result.message = '文件是空的，或超过 1MB';
+          return result;
+        }
+        let buffer = new ArrayBuffer(stat.size);
+        fileIo.readSync(file.fd, buffer);
+        FileExchange.closeQuiet(file);
+        let decoder = util.TextDecoder.create('utf-8');
+        result.text = decoder.decodeToString(new Uint8Array(buffer));
+        result.ok = true;
+        result.message = '已读取文件';
+        return result;
+      } catch (err) {
+        hilog.error(0x4A59, 'FileExchange', 'uri %{public}s', JSON.stringify(err));
+        FileExchange.closeQuiet(file);
+        result.message = '读取文件失败';
+        return result;
+      }
+    } catch (err) {
+      hilog.error(0x4A59, 'FileExchange', 'open %{public}s', JSON.stringify(err));
+      result.message = '读取文件失败';
+      return result;
+    }
+  }
+
+  private static closeQuiet(file: fileIo.File): void {
+    try {
+      fileIo.closeSync(file);
+    } catch (err) {
+      hilog.error(0x4A59, 'FileExchange', 'close %{public}s', JSON.stringify(err));
+    }
+  }
+
   static async saveText(ctx: common.UIAbilityContext, fileName: string, content: string): Promise<IoResult> {
     let result = new IoResult();
     try {

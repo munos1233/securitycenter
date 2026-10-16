@@ -18,12 +18,12 @@ export struct BrandBar {
           Text('湖')
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
-            .fontColor(Theme.ink)
+            .fontColor(Theme.onAccent)
         }
         .width(36)
         .height(36)
         .borderRadius(18)
-        .backgroundColor(Theme.gold)
+        .backgroundColor(Theme.accent)
         .margin({ right: 12 })
 
         Column() {
@@ -33,7 +33,7 @@ export struct BrandBar {
             .fontColor(Theme.text)
           Text(this.subtitle)
             .fontSize(13)
-            .fontColor(Theme.gold)
+            .fontColor(Theme.accent)
             .margin({ top: 2 })
         }
         .alignItems(HorizontalAlign.Start)
@@ -43,7 +43,7 @@ export struct BrandBar {
       .alignItems(VerticalAlign.Center)
       .padding({ left: 16, right: 16, top: 16, bottom: 12 })
 
-      Divider().color(Theme.gold).strokeWidth(2)
+      Divider().color(Theme.accent).strokeWidth(2)
     }
     .width('100%')
     .backgroundColor(Theme.page)
@@ -62,14 +62,16 @@ export struct TabBar {
     Row() {
       ForEach(this.tabs, (name: string, tabIndex: number) => {
         Text(name)
-          .fontSize(15)
+          .fontSize(14)
           .fontWeight(this.index === tabIndex ? FontWeight.Medium : FontWeight.Regular)
-          .fontColor(this.index === tabIndex ? Theme.ink : Theme.text)
+          .fontColor(this.index === tabIndex ? Theme.onAccent : Theme.text)
           .textAlign(TextAlign.Center)
+          .maxLines(1)
           .layoutWeight(1)
           .height(40)
+          .padding({ left: 2, right: 2 })
           .borderRadius(10)
-          .backgroundColor(this.index === tabIndex ? Theme.gold : Theme.cardAlt)
+          .backgroundColor(this.index === tabIndex ? Theme.accent : Theme.cardAlt)
           .onClick(() => {
             this.onPick(tabIndex);
           })
@@ -104,7 +106,7 @@ export struct RehearsalBanner {
     Text('含版式样例。正式演示前请清空，避免时间戳穿帮。')
       .width('100%')
       .fontSize(14)
-      .fontColor(Theme.warnInk)
+      .fontColor(Theme.onWarn)
       .backgroundColor(Theme.warn)
       .borderRadius(10)
       .padding(12)
@@ -133,8 +135,8 @@ export struct ChoiceRow {
         ForEach(this.options, (item: Choice) => {
           Text(item.label)
             .fontSize(14)
-            .fontColor(this.value === item.value ? Theme.ink : Theme.text)
-            .backgroundColor(this.value === item.value ? Theme.gold : Theme.cardAlt)
+            .fontColor(this.value === item.value ? Theme.onAccent : Theme.text)
+            .backgroundColor(this.value === item.value ? Theme.accent : Theme.cardAlt)
             .borderRadius(16)
             .padding({ left: 12, right: 12, top: 8, bottom: 8 })
             .margin({ right: 8, bottom: 8 })
@@ -189,7 +191,7 @@ export struct FieldBox {
 }
 
 @Component
-export struct GoldButton {
+export struct PrimaryButton {
   @Prop label: string = '';
   @Prop canTap: boolean = true;
   onTap: () => void = () => {
@@ -198,18 +200,94 @@ export struct GoldButton {
 
   build() {
     Button(this.label)
-      .type(ButtonType.Normal)
+      .type(ButtonType.Capsule)
       .enabled(this.canTap)
       .width('100%')
-      .height(46)
+      .height(40)
       .fontSize(16)
       .fontWeight(FontWeight.Medium)
-      .fontColor(Theme.ink)
-      .backgroundColor(this.canTap ? Theme.gold : Theme.cardAlt)
-      .borderRadius(12)
+      .fontColor(Theme.onAccent)
+      .backgroundColor(Theme.accent)
+      .opacity(this.canTap ? 1 : 0.4)
+      .margin({ top: 8 })
       .onClick(() => {
         this.onTap();
       })
+  }
+}
+
+@Component
+export struct QuietStage {
+  @Prop headline: string = '';
+  @Prop detail: string = '';
+
+  build() {
+    Column() {
+      SymbolGlyph($r('sys.symbol.doc_text_fill'))
+        .fontSize(48)
+        .fontColor([Theme.line])
+      Text(this.headline)
+        .width('100%')
+        .fontSize(18)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(Theme.text)
+        .textAlign(TextAlign.Center)
+        .maxLines(2)
+        .margin({ top: 12 })
+      if (this.detail.length > 0) {
+        Text(this.detail)
+          .width('100%')
+          .fontSize(14)
+          .fontColor(Theme.muted)
+          .textAlign(TextAlign.Center)
+          .lineHeight(20)
+          .margin({ top: 6 })
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Center)
+    .padding({ left: 24, right: 24, top: 32, bottom: 32 })
+    .borderRadius(16)
+    .backgroundColor(Theme.card)
+  }
+}
+
+@Component
+export struct BusyStage {
+  @Prop title: string = '';
+  @Prop detail: string = '';
+
+  build() {
+    Row() {
+      LoadingProgress()
+        .width(32)
+        .height(32)
+        .color(Theme.accent)
+      Column() {
+        Text('正在检测 ' + this.title)
+          .width('100%')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Theme.text)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.detail.length > 0) {
+          Text(this.detail)
+            .width('100%')
+            .fontSize(13)
+            .fontColor(Theme.muted)
+            .margin({ top: 2 })
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      .margin({ left: 12 })
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding(16)
+    .borderRadius(16)
+    .backgroundColor(Theme.card)
   }
 }
 
@@ -222,14 +300,13 @@ export struct GhostButton {
 
   build() {
     Button(this.label)
-      .type(ButtonType.Normal)
+      .type(ButtonType.Capsule)
       .width('100%')
-      .height(44)
+      .height(40)
       .fontSize(15)
-      .fontColor(Theme.gold)
-      .backgroundColor(Theme.page)
-      .borderRadius(12)
-      .border({ width: 1, color: Theme.gold })
+      .fontColor(Theme.accent)
+      .backgroundColor(Theme.accentSoft)
+      .margin({ top: 8 })
       .onClick(() => {
         this.onTap();
       })
@@ -260,6 +337,74 @@ export struct InfoLine {
 }
 
 @Component
+export struct EvidenceSheet {
+  @Prop kind: string = '';
+  @Prop text: string = '';
+  @Prop raw: string = '';
+  @Prop at: string = '';
+
+  build() {
+    Column() {
+      Text(this.kind)
+        .width('100%')
+        .fontSize(22)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(Theme.text)
+      if (this.at.length > 0) {
+        Text('时间')
+          .width('100%')
+          .fontSize(12)
+          .fontColor(Theme.muted)
+          .margin({ top: 16 })
+        Text(this.at)
+          .width('100%')
+          .fontSize(15)
+          .fontColor(Theme.text)
+          .margin({ top: 4 })
+      }
+      if (this.text.length > 0) {
+        Text('说明')
+          .width('100%')
+          .fontSize(12)
+          .fontColor(Theme.muted)
+          .margin({ top: 16 })
+        Text(this.text)
+          .width('100%')
+          .fontSize(16)
+          .fontColor(Theme.text)
+          .margin({ top: 4 })
+      }
+      if (this.kind === '源码行号' && this.raw.length > 0) {
+        Text('源码行号')
+          .width('100%')
+          .fontSize(12)
+          .fontColor(Theme.accent)
+          .margin({ top: 16 })
+        Text(this.raw)
+          .width('100%')
+          .fontSize(20)
+          .fontColor(Theme.accent)
+          .margin({ top: 4 })
+      } else if (this.raw.length > 0) {
+        Text('原文')
+          .width('100%')
+          .fontSize(12)
+          .fontColor(Theme.muted)
+          .margin({ top: 16 })
+        Text(this.raw)
+          .width('100%')
+          .fontSize(13)
+          .fontFamily('monospace')
+          .fontColor(Theme.muted)
+          .margin({ top: 4 })
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+}
+
+@Component
 export struct EventCard {
   @Prop event: D4Event = new D4Event();
   onOpen: (eventId: string) => void = (eventId: string) => {
@@ -271,15 +416,15 @@ export struct EventCard {
       Row() {
         Text(outcomeLabel(this.event.outcome))
           .fontSize(12)
-          .fontColor(outcomeTone(this.event.outcome) === 'danger' ? '#3A1212' : outcomeTone(this.event.outcome) === 'ok' ? '#06281A' : Theme.ink)
-          .backgroundColor(outcomeTone(this.event.outcome) === 'danger' ? Theme.danger : outcomeTone(this.event.outcome) === 'ok' ? Theme.ok : Theme.gold)
+          .fontColor(outcomeTone(this.event.outcome) === 'danger' ? '#3A1212' : outcomeTone(this.event.outcome) === 'ok' ? '#06281A' : Theme.onAccent)
+          .backgroundColor(outcomeTone(this.event.outcome) === 'danger' ? Theme.danger : outcomeTone(this.event.outcome) === 'ok' ? Theme.ok : Theme.accent)
           .borderRadius(10)
           .padding({ left: 8, right: 8, top: 3, bottom: 3 })
         Text(sourceLabel(this.event.source))
           .fontSize(12)
-          .fontColor(Theme.gold)
+          .fontColor(Theme.accent)
           .borderRadius(10)
-          .border({ width: 1, color: Theme.gold })
+          .border({ width: 1, color: Theme.accent })
           .padding({ left: 8, right: 8, top: 3, bottom: 3 })
           .margin({ left: 8 })
         Text(this.event.scenarioId)
@@ -308,7 +453,7 @@ export struct EventCard {
     .borderRadius(14)
     .backgroundColor(Theme.cardAlt)
     .borderWidth({ left: 4, top: 1, right: 1, bottom: 1 })
-    .borderColor(outcomeTone(this.event.outcome) === 'danger' ? Theme.danger : outcomeTone(this.event.outcome) === 'ok' ? Theme.ok : Theme.gold)
+    .borderColor(outcomeTone(this.event.outcome) === 'danger' ? Theme.danger : outcomeTone(this.event.outcome) === 'ok' ? Theme.ok : Theme.accent)
     .margin({ bottom: 10 })
     .onClick(() => {
       this.onOpen(this.event.eventId);
@@ -320,20 +465,25 @@ export struct EventCard {
 export struct ScoreRing {
   @Prop done: number = 0;
   @Prop total: number = 6;
+  @Prop caption: string = '闭环';
 
   build() {
     Stack({ alignContent: Alignment.Center }) {
-      Progress({ value: this.done, total: this.total, type: ProgressType.Ring })
+      Progress({
+        value: this.total > 0 && this.done > this.total ? this.total : (this.done < 0 ? 0 : this.done),
+        total: this.total > 0 ? this.total : 1,
+        type: ProgressType.Ring
+      })
         .width(128)
         .height(128)
         .style({ strokeWidth: 10 })
-        .color(Theme.gold)
+        .color(Theme.accent)
       Column() {
         Text(this.done.toString() + '/' + this.total.toString())
           .fontSize(26)
           .fontWeight(FontWeight.Bold)
           .fontColor(Theme.text)
-        Text('闭环')
+        Text(this.caption)
           .fontSize(12)
           .fontColor(Theme.muted)
       }
@@ -352,7 +502,7 @@ export struct ThreatBlock {
       Text(this.row.threatId + '  ·  ' + statusLabel(this.row.status))
         .width('100%')
         .fontSize(13)
-        .fontColor(Theme.gold)
+        .fontColor(Theme.accent)
       Text(this.row.title)
         .width('100%')
         .fontSize(20)
@@ -394,7 +544,7 @@ export struct EventBlock {
       Text(scenarioLabel(this.event.scenarioId) + '  ·  ' + roleLabel(this.event.imageRole))
         .width('100%')
         .fontSize(14)
-        .fontColor(Theme.gold)
+        .fontColor(Theme.accent)
         .margin({ top: 4, bottom: 8 })
       InfoLine({ label: '现场结果', value: outcomeLabel(this.event.outcome) })
       InfoLine({ label: '时间', value: this.event.occurredAt })
@@ -442,20 +592,23 @@ export struct BoardPane {
   @Prop phrase: string = '';
   @Prop timeText: string = '';
   @Prop outcome: string = '';
+  @Prop phraseInk: string = '';
   @Prop demoMark: boolean = false;
   onOpen: () => void = () => {};
 
   build() {
     Stack({ alignContent: Alignment.Center }) {
       Column() {
-        Text(this.role === 'vanilla-demo' ? '普通版' : '安全版')
-          .fontSize(16)
-          .fontColor(this.role === 'vanilla-demo' ? Theme.danger : Theme.ok)
-        Column()
-          .width(28)
-          .height(2)
-          .backgroundColor(this.role === 'vanilla-demo' ? Theme.danger : Theme.ok)
-          .margin({ top: 6, bottom: 16 })
+        if (!(this.face === 'result' && this.outcome === 'pending')) {
+          Text(this.role === 'vanilla-demo' ? '普通版' : '安全版')
+            .fontSize(16)
+            .fontColor(this.role === 'vanilla-demo' ? Theme.danger : Theme.ok)
+          Column()
+            .width(28)
+            .height(2)
+            .backgroundColor(this.role === 'vanilla-demo' ? Theme.danger : Theme.ok)
+            .margin({ top: 6, bottom: 16 })
+        }
         if (this.face !== 'result') {
           this.identityBody()
           this.slotRow()
@@ -504,7 +657,7 @@ export struct BoardPane {
           .width('100%')
           .fontSize(Theme.hashSize)
           .fontWeight(FontWeight.Bold)
-          .fontColor(Theme.gold)
+          .fontColor(Theme.accent)
           .textAlign(TextAlign.Center)
           .maxLines(1)
           .margin({ top: 4 })
@@ -513,7 +666,7 @@ export struct BoardPane {
           .width('100%')
           .fontSize(34)
           .fontWeight(FontWeight.Bold)
-          .fontColor(Theme.gold)
+          .fontColor(Theme.accent)
           .textAlign(TextAlign.Center)
           .maxLines(2)
         Text('尾号待填写')
@@ -534,8 +687,8 @@ export struct BoardPane {
       if (this.demoMark) {
         Text('演示稿')
           .fontSize(12)
-          .fontColor(Theme.gold)
-          .border({ width: 1, color: Theme.gold })
+          .fontColor(Theme.accent)
+          .border({ width: 1, color: Theme.accent })
           .borderRadius(10)
           .padding({ left: 8, right: 8, top: 2, bottom: 2 })
           .margin({ bottom: 10 })
@@ -544,7 +697,7 @@ export struct BoardPane {
         .width('100%')
         .fontSize(this.face === 'both' ? 32 : Theme.phraseSize)
         .fontWeight(FontWeight.Bold)
-        .fontColor(Theme.text)
+        .fontColor(this.phraseInk.length > 0 ? this.phraseInk : Theme.text)
         .textAlign(TextAlign.Center)
         .maxLines(3)
         .lineHeight(44)
@@ -601,12 +754,12 @@ export struct BoardPane {
         Text(mark)
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
-          .fontColor(Theme.ink)
+          .fontColor(Theme.onAccent)
       }
       .width(44)
       .height(44)
       .borderRadius(22)
-      .backgroundColor(Theme.gold)
+      .backgroundColor(Theme.accent)
 
       Text(name)
         .fontSize(12)
@@ -619,6 +772,9 @@ export struct BoardPane {
   }
 
   barColor(): string {
+    if (this.outcome === 'pending') {
+      return Theme.line;
+    }
     if (this.outcome === 'succeeded' || this.outcome === 'down') {
       return Theme.danger;
     }
@@ -643,8 +799,8 @@ export struct HitButton {
       .height(Theme.hitHeight)
       .fontSize(22)
       .fontWeight(FontWeight.Medium)
-      .fontColor(Theme.ink)
-      .backgroundColor(Theme.gold)
+      .fontColor(Theme.onAccent)
+      .backgroundColor(Theme.accent)
       .borderRadius(16)
       .onClick(() => {
         this.onTap();
@@ -664,7 +820,7 @@ export struct ShowDock {
     Row() {
       Text('准备')
         .fontSize(16)
-        .fontColor(Theme.gold)
+        .fontColor(Theme.accent)
         .padding({ left: 4, right: 12, top: 10, bottom: 10 })
         .onClick(() => {
           this.onPrep();
@@ -676,7 +832,7 @@ export struct ShowDock {
         .margin({ right: 12 })
       Text(this.toggleText)
         .fontSize(16)
-        .fontColor(Theme.gold)
+        .fontColor(Theme.accent)
         .padding({ left: 12, right: 12, top: 10, bottom: 10 })
         .onClick(() => {
           this.onToggle();
@@ -687,8 +843,8 @@ export struct ShowDock {
         .width(112)
         .fontSize(16)
         .fontWeight(FontWeight.Medium)
-        .fontColor(Theme.ink)
-        .backgroundColor(Theme.gold)
+        .fontColor(Theme.onAccent)
+        .backgroundColor(Theme.accent)
         .borderRadius(12)
         .margin({ left: 8 })
         .onClick(() => {
@@ -713,7 +869,7 @@ export struct SampleHero {
     Column() {
       Text('第 ' + (this.index + 1).toString() + ' 张  ·  共 ' + this.total.toString() + ' 张')
         .fontSize(16)
-        .fontColor(Theme.gold)
+        .fontColor(Theme.accent)
       Text(this.title)
         .fontSize(Theme.phraseSize)
         .fontWeight(FontWeight.Bold)
@@ -735,7 +891,7 @@ export struct SampleHero {
         ForEach(this.marks(), (item: number) => {
           Text(item === this.index ? '●' : '○')
             .fontSize(16)
-            .fontColor(item === this.index ? Theme.gold : Theme.muted)
+            .fontColor(item === this.index ? Theme.accent : Theme.muted)
         }, (item: number) => item.toString())
       }
       .margin({ top: 28 })
@@ -761,6 +917,7 @@ export struct SampleHero {
 export class FindingCardRecord {
   findingId: string = '';
   scenarioId: string = '';
+  title: string = '';
   status: string = '';
   registeredAt: string = '';
   evidenceNo: string = '';
@@ -775,7 +932,7 @@ export struct FindingCard {
       Row() {
         Text(findingStatusText(this.record))
           .fontSize(12)
-          .fontColor(Theme.ink)
+          .fontColor(Theme.onAccent)
           .backgroundColor(findingBarColor(this.record))
           .borderRadius(10)
           .padding({ left: 8, right: 8, top: 3, bottom: 3 })
@@ -796,6 +953,15 @@ export struct FindingCard {
           .fontColor(Theme.text)
           .maxLines(1)
           .margin({ top: 10 })
+      }
+
+      if (knownTitle(this.record.title)) {
+        Text(this.record.title)
+          .width('100%')
+          .fontSize(16)
+          .fontColor(Theme.text)
+          .maxLines(1)
+          .margin({ top: 4 })
       }
 
       Text('登记时点')
@@ -828,11 +994,9 @@ export struct FindingCard {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .padding(14)
-    .borderRadius(14)
-    .backgroundColor(Theme.cardAlt)
-    .borderWidth({ left: 6, top: 1, right: 1, bottom: 1 })
-    .borderColor(findingBarColor(this.record))
+    .padding(16)
+    .borderRadius(16)
+    .backgroundColor(Theme.card)
     .margin({ bottom: 10 })
   }
 }
@@ -846,19 +1010,19 @@ export struct ProbeBadge {
       if (recordedRun(this.run)) {
         Text(this.run.probeId)
           .fontSize(12)
-          .fontColor(Theme.ink)
-          .backgroundColor(Theme.gold)
+          .fontColor(Theme.onAccent)
+          .backgroundColor(Theme.accent)
           .borderRadius(10)
           .padding({ left: 8, right: 8, top: 3, bottom: 3 })
         Text(this.run.level)
           .fontSize(12)
-          .fontColor(Theme.ink)
-          .backgroundColor(Theme.gold)
+          .fontColor(Theme.onAccent)
+          .backgroundColor(Theme.accent)
           .borderRadius(10)
           .padding({ left: 8, right: 8, top: 3, bottom: 3 })
           .margin({ left: 8 })
       } else {
-        Text('尚未扫描')
+        Text('尚未检测')
           .fontSize(12)
           .fontColor(Theme.muted)
           .backgroundColor(Theme.card)
@@ -872,22 +1036,20 @@ export struct ProbeBadge {
 @Component
 export struct SocL3Exhibit {
   build() {
-    Column() {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Column() {
+        Text('终端分布 / 攻击面示意')
+          .width('100%')
+          .fontSize(16)
+          .fontColor(Theme.text)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({ left: 14, right: 64, top: 14, bottom: 14 })
       DemoBadge()
-      Text('终端分布 / 攻击面示意')
-        .width('100%')
-        .fontSize(16)
-        .fontColor(Theme.text)
-        .margin({ top: 8 })
-      Text('没有探针计数')
-        .width('100%')
-        .fontSize(12)
-        .fontColor(Theme.muted)
-        .margin({ top: 4 })
+        .margin({ top: 10, right: 10 })
     }
     .width('100%')
-    .alignItems(HorizontalAlign.Start)
-    .padding(14)
     .borderRadius(14)
     .backgroundColor(Theme.card)
     .border({ width: 1, color: Theme.line })
@@ -895,11 +1057,11 @@ export struct SocL3Exhibit {
 }
 
 @Component
-struct DemoBadge {
+export struct DemoBadge {
   build() {
     Text('展示')
       .fontSize(12)
-      .fontColor(Theme.warnInk)
+      .fontColor(Theme.onWarn)
       .backgroundColor(Theme.warn)
       .borderRadius(10)
       .padding({ left: 8, right: 8, top: 3, bottom: 3 })
@@ -908,7 +1070,7 @@ struct DemoBadge {
 
 function findingBarColor(record: FindingCardRecord): string {
   if (record.scenarioId === 'C1') {
-    return Theme.gold;
+    return Theme.accent;
   }
   if (record.status === 'fixed-by-patch' && findingClosed(record)) {
     return Theme.ok;
@@ -924,18 +1086,18 @@ function findingBarColor(record: FindingCardRecord): string {
 
 function findingStatusText(record: FindingCardRecord): string {
   if (record.scenarioId === 'C1') {
-    return '保持 open';
+    return '持续关注';
   }
   if (record.status === 'fixed-by-patch' && findingClosed(record)) {
-    return '已由补丁固定';
+    return '已由补丁修复';
   }
   if (record.status === 'fixed-by-patch') {
     return '登记不完整';
   }
   if (record.status === 'open') {
-    return '未收口';
+    return '待处理';
   }
-  return '尚未扫描';
+  return '尚未检测';
 }
 
 function findingClosed(record: FindingCardRecord): boolean {
@@ -944,6 +1106,10 @@ function findingClosed(record: FindingCardRecord): boolean {
 
 function knownScenario(scenarioId: string): boolean {
   return scenarioId === 'A1' || scenarioId === 'B1' || scenarioId === 'C1';
+}
+
+function knownTitle(title: string): boolean {
+  return title === '安装信任链' || title === '沙箱隔离' || title === '安全组件姿态';
 }
 
 function knownFindingId(findingId: string): boolean {

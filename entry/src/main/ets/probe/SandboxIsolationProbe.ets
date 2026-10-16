@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { closeSync, openSync, statSync, OpenMode } from '@ohos.file.fs';
+import fs from '@ohos.file.fs';
 import { nowIso } from '../model/D4Types';
 import { LiveStore } from '../model/LiveStore';
 import type { ImageRole, Probe, ProbeId, ProbeResult, ProofLevel, Verdict } from './ProbeTypes';
@@ -101,6 +101,8 @@ export class SandboxIsolationProbe implements Probe {
       }
       fact.at = nowIso();
       facts.push(fact);
+      LiveStore.advanceScan('P2', facts.length, steps.length, fact.category, attemptRaw(fact), fact.at);
+      await yieldTurn();
     }
     let judged = judgeSandbox(facts);
     if (!judged.decided) {
@@ -135,6 +137,12 @@ class ProbeResultBox implements ProbeResult {
   imageRole: ImageRole | '' = '';
   evidences: ProbeEvidence[] = [];
   createdAt: string = '';
+}
+
+function yieldTurn(): Promise<void> {
+  return new Promise<void>((resolve: () => void) => {
+    setTimeout(resolve, 0);
+  });
 }
 
 function buildSteps(filesDir: string): SandboxStep[] {
@@ -177,22 +185,25 @@ function trimSlash(filesDir: string): string {
 function executePath(category: string, path: string): FsOutcome {
   let outcome = new FsOutcome();
   try {
-    statSync(path);
+    fs.statSync(path);
     outcome.gotStat = true;
   } catch (err) {
-    outcome.statCode = errorCode(err);
+    let boxed: ErrorBox = err as ErrorBox;
+    outcome.statCode = numericCode(boxed);
     hilog.error(DOMAIN, TAG, '%{public}s stat %{public}s', category, hexErrno(outcome.statCode));
   }
   try {
-    let opened = openSync(path, OpenMode.READ_ONLY);
+    let opened = fs.openSync(path, fs.OpenMode.READ_ONLY);
     outcome.gotHandle = true;
     try {
-      closeSync(opened);
+      fs.closeSync(opened);
     } catch (closeErr) {
-      hilog.error(DOMAIN, TAG, '%{public}s close %{public}s', category, hexErrno(errorCode(closeErr)));
+      let boxed: ErrorBox = closeErr as ErrorBox;
+      hilog.error(DOMAIN, TAG, '%{public}s close %{public}s', category, hexErrno(numericCode(boxed)));
     }
   } catch (err) {
-    outcome.openCode = errorCode(err);
+    let boxed: ErrorBox = err as ErrorBox;
+    outcome.openCode = numericCode(boxed);
     hilog.error(DOMAIN, TAG, '%{public}s open %{public}s', category, hexErrno(outcome.openCode));
   }
   return outcome;
@@ -276,11 +287,7 @@ function imageRoleNow(): ImageRole | '' {
   return '';
 }
 
-function errorCode(err: Object): number {
-  if (!err || typeof err !== 'object') {
-    return -1;
-  }
-  let boxed = err as ErrorBox;
+function numericCode(boxed: ErrorBox): number {
   if (typeof boxed.code === 'number' && boxed.code === boxed.code) {
     return boxed.code;
   }

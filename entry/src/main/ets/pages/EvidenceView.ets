@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit';
 import { Theme } from '../common/Theme';
-import { ChoiceRow, EventBlock, EventCard, GhostButton, GoldButton, RehearsalBanner, ThreatBlock } from '../components/UiParts';
+import { ChoiceRow, EventBlock, EventCard, GhostButton, PrimaryButton, RehearsalBanner, ThreatBlock } from '../components/UiParts';
 import { Catalog, ThreatRow } from '../model/Catalog';
 import { formatBundle } from '../model/D4Codec';
 import { Choice, D4Event, filterEvents, hasRehearsal } from '../model/D4Types';
@@ -73,7 +73,7 @@ export struct EvidenceView {
         .width('100%')
         .margin({ top: 4, bottom: 8 })
 
-        GoldButton({
+        PrimaryButton({
           label: this.confirmClear ? '确认清空' : '清空现场与样例',
           onTap: () => {
             this.clearAll();
@@ -145,7 +145,7 @@ export struct EvidenceView {
       Text('残余 · 必须能单独打开')
         .width('100%')
         .fontSize(13)
-        .fontColor(Theme.gold)
+        .fontColor(Theme.accent)
       Text(Catalog.residual().title)
         .width('100%')
         .fontSize(18)
@@ -163,7 +163,7 @@ export struct EvidenceView {
     .padding(14)
     .borderRadius(14)
     .backgroundColor(Theme.card)
-    .border({ width: 1, color: Theme.gold })
+    .border({ width: 1, color: Theme.accent })
     .margin({ top: 4, bottom: 12 })
     .onClick(() => {
       this.sheetMode = 'threat';
@@ -183,7 +183,7 @@ export struct EvidenceView {
             Text('对应台账')
               .width('100%')
               .fontSize(16)
-              .fontColor(Theme.gold)
+              .fontColor(Theme.accent)
               .margin({ top: 8, bottom: 8 })
             ThreatBlock({ row: this.linkedThreat() })
             if (this.ledgerDiffers()) {
@@ -194,7 +194,7 @@ export struct EvidenceView {
                 .margin({ bottom: 8 })
             }
           }
-          GoldButton({
+          PrimaryButton({
             label: this.confirmDelete ? '确认删除这条' : '删除这条',
             onTap: () => {
               this.deleteCurrent();

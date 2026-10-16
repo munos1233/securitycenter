@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { formatBoards, formatBundle, parseBoards, parseBundle } from './D4Codec';
+import { Finding, Findings, formatFindings, parseFindings } from '../report/Findings';
 import {
   BoardPair,
   D4Event,
@@ -28,12 +29,39 @@ import {
   ProbeShelf,
   SidecarReport,
   copyShelf,
-  emptyProbeShelf
+  emptyProbeShelf,
+  isStamp
 } from '../probe/ProbeTypes';
+import { Registry } from '../probe/Registry';
 
 const DOMAIN = 0x4A59;
 const TAG = 'LiveStore';
 const PREF_NAME = 'jinyinhu';
+const IMAGE_CHOICE_KEY = 'imageChoice';
+const IMAGE_CHOICE_SCHEMA = 'jinyinhu.image.choice';
+
+export class ImageChoice {
+  imageTag: string = '';
+  at: string = '';
+}
+
+@Observed
+export class ScanStepLine {
+  index: number = 0;
+  category: string = '';
+  raw: string = '';
+  at: string = '';
+}
+
+@Observed
+export class ScanProgress {
+  running: boolean = false;
+  probeId: string = '';
+  title: string = '';
+  step: number = 0;
+  total: number = 0;
+  lines: ScanStepLine[] = [];
+}
 
 export class LiveStore {
   private static ctx: common.UIAbilityContext | undefined = undefined;
@@ -61,6 +89,17 @@ export class LiveStore {
     if (!AppStorage.has('probeShelf')) {
       AppStorage.setOrCreate('probeShelf', emptyProbeShelf());
     }
+    if (!AppStorage.has('imageChoice')) {
+      AppStorage.setOrCreate('imageChoice', new ImageChoice());
+    }
+    if (!AppStorage.has('scanProgress')) {
+      AppStorage.setOrCreate('scanProgress', new ScanProgress());
+    }
+    Findings.bindWriter((text: string): void => {
+      LiveStore.writeFindings(text);
+    });
+    Findings.restore();
+    Registry.registerAll();
   }
 
   static async restore(): Promise<void> {
@@ -94,6 +133,8 @@ export class LiveStore {
         AppStorage.setOrCreate('pairLayout', 'solo');
       }
       await LiveStore.restoreShelf();
+      await LiveStore.restoreFindings();
+      await LiveStore.restoreImageChoice();
     } catch (err) {
       LiveStore.setStatus('本地记录读取失败，已从空白现场开始');
       hilog.error(DOMAIN, TAG, 'restore %{public}s', JSON.stringify(err));
@@ -118,6 +159,43 @@ export class LiveStore {
 
   static setStatus(message: string): void {
     AppStorage.setOrCreate('statusLine', message);
+  }
+
+  static imageChoice(): ImageChoice {
+    let current = AppStorage.get<ImageChoice>('imageChoice');
+    if (current === undefined) {
+      return new ImageChoice();
+    }
+    return current;
+  }
+
+  static noteImageChoice(tag: string): void {
+    if (tag !== 'base' && tag !== 'secure') {
+      throw new Error('镜像标签无法写入');
+    }
+    if (LiveStore.pref === undefined) {
+      throw new Error('镜像标签尚未打开');
+    }
+    let row = new ImageChoice();
+    row.imageTag = tag;
+    row.at = nowIso();
+    let text = formatImageChoice(row);
+    let previous = '';
+    let hadPrevious = false;
+    try {
+      let raw = LiveStore.pref.getSync(IMAGE_CHOICE_KEY, '');
+      if (typeof raw === 'string') {
+        previous = raw;
+        hadPrevious = raw.length > 0;
+      }
+      LiveStore.pref.putSync(IMAGE_CHOICE_KEY, text);
+      LiveStore.pref.flushSync();
+    } catch (err) {
+      LiveStore.restoreChoiceText(hadPrevious, previous);
+      hilog.error(DOMAIN, TAG, 'image %{public}s', JSON.stringify(err));
+      throw new Error('镜像标签写入失败');
+    }
+    AppStorage.setOrCreate('imageChoice', row);
   }
 
   static async replaceEvents(events: D4Event[]): Promise<void> {
@@ -216,6 +294,60 @@ export class LiveStore {
     return current;
   }
 
+  static scanProgress(): ScanProgress {
+    let current = AppStorage.get<ScanProgress>('scanProgress');
+    if (current === undefined) {
+      let created = new ScanProgress();
+      AppStorage.setOrCreate('scanProgress', created);
+      return created;
+    }
+    return current;
+  }
+
+  static beginScan(id: string, title: string): void {
+    let row = new ScanProgress();
+    row.running = true;
+    row.probeId = id;
+    row.title = title;
+    AppStorage.setOrCreate('scanProgress', row);
+  }
+
+  static advanceScan(id: string, step: number, total: number, category: string, raw: string, at: string): void {
+    let current = LiveStore.scanProgress();
+    if (!current.running || current.probeId !== id) {
+      return;
+    }
+    if (step < 1 || total < 1 || step > total) {
+      return;
+    }
+    let copied: ScanStepLine[] = [];
+    for (let i = 0; i < current.lines.length; i++) {
+      if (current.lines[i].index !== step) {
+        copied.push(current.lines[i]);
+      }
+    }
+    if (category.length > 0 || raw.length > 0) {
+      let line = new ScanStepLine();
+      line.index = step;
+      line.category = category;
+      line.raw = raw;
+      line.at = at;
+      copied.push(line);
+    }
+    let row = new ScanProgress();
+    row.running = true;
+    row.probeId = current.probeId;
+    row.title = current.title;
+    row.step = step;
+    row.total = total;
+    row.lines = copied;
+    AppStorage.setOrCreate('scanProgress', row);
+  }
+
+  static endScan(): void {
+    AppStorage.setOrCreate('scanProgress', new ScanProgress());
+  }
+
   static boardUdid(): string {
     return LiveStore.shelf().boardUdid;
   }
@@ -245,6 +377,60 @@ export class LiveStore {
     }
   }
 
+  static replaceLedger(findings: Finding[], runs: ProbeRun[]): void {
+    let next: Finding[] = [];
+    for (let i = 0; i < findings.length; i++) {
+      if (findings[i].findingId === 'FND-A1') {
+        next.push(findings[i]);
+      }
+    }
+    for (let i = 0; i < findings.length; i++) {
+      if (findings[i].findingId === 'FND-B1') {
+        next.push(findings[i]);
+      }
+    }
+    let current = Findings.list();
+    for (let i = 0; i < current.length; i++) {
+      if (current[i].findingId === 'FND-C1') {
+        next.push(current[i]);
+      }
+    }
+    let text = formatFindings(next);
+    if (parseFindings(text) === undefined) {
+      throw new Error('台账无法写入');
+    }
+    let previous = formatFindings(Findings.list());
+    LiveStore.writeFindings(text);
+    let parsed = parseFindings(text);
+    if (parsed === undefined) {
+      throw new Error('台账无法写入');
+    }
+    AppStorage.setOrCreate('findings', parsed);
+    try {
+      let shelf = copyShelf(LiveStore.shelf());
+      let kept: ProbeRun[] = [];
+      for (let i = 0; i < shelf.runs.length; i++) {
+        if (shelf.runs[i].probeId === 'P3') {
+          kept.push(shelf.runs[i]);
+        }
+      }
+      for (let i = 0; i < runs.length; i++) {
+        let accepted = acceptProbeRun(runs[i].probeId, runs[i]);
+        if (!accepted.ok) {
+          throw new Error(accepted.reason);
+        }
+        kept.push(accepted.run);
+      }
+      shelf.runs = kept;
+      LiveStore.commitShelf(shelf);
+    } catch (err) {
+      LiveStore.writeFindings(previous);
+      Findings.load(previous);
+      hilog.error(DOMAIN, TAG, 'ledger %{public}s', JSON.stringify(err));
+      throw new Error('探针记录写入失败');
+    }
+  }
+
   static appendProbeRun(run: ProbeRun): void {
     let accepted = acceptProbeRun(run.probeId, run);
     if (!accepted.ok) {
@@ -259,7 +445,7 @@ export class LiveStore {
       throw new Error(accepted.reason);
     }
     LiveStore.commitShelf(applyKeepSidecar(LiveStore.shelf(), accepted.report, nowIso()));
-    LiveStore.setStatus('侧车报告已导入');
+    LiveStore.setStatus('检测报告已导入');
   }
 
   static noteImportFailure(reason: string): void {
@@ -274,6 +460,100 @@ export class LiveStore {
       throw new Error('探针编号不一致');
     }
     LiveStore.commitShelf(applyRunFault(LiveStore.shelf(), id, reason, nowIso()));
+  }
+
+  private static async restoreImageChoice(): Promise<void> {
+    if (LiveStore.pref === undefined) {
+      return;
+    }
+    try {
+      let raw = await LiveStore.pref.get(IMAGE_CHOICE_KEY, '');
+      if (typeof raw !== 'string' || raw.length === 0) {
+        return;
+      }
+      let parsed = parseImageChoice(raw);
+      if (parsed === undefined) {
+        hilog.error(DOMAIN, TAG, 'image choice kept on disk');
+        return;
+      }
+      AppStorage.setOrCreate('imageChoice', parsed);
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'image %{public}s', JSON.stringify(err));
+    }
+  }
+
+  private static restoreChoiceText(hadPrevious: boolean, previous: string): void {
+    if (LiveStore.pref === undefined) {
+      return;
+    }
+    try {
+      if (hadPrevious) {
+        LiveStore.pref.putSync(IMAGE_CHOICE_KEY, previous);
+      } else {
+        LiveStore.pref.deleteSync(IMAGE_CHOICE_KEY);
+      }
+      LiveStore.pref.flushSync();
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'image rollback %{public}s', JSON.stringify(err));
+    }
+  }
+
+  private static async restoreFindings(): Promise<void> {
+    if (LiveStore.pref === undefined) {
+      return;
+    }
+    try {
+      let raw = await LiveStore.pref.get('findings', '');
+      if (typeof raw !== 'string') {
+        Findings.noteUnreadable();
+        hilog.error(DOMAIN, TAG, 'findings value');
+        return;
+      }
+      Findings.load(raw);
+    } catch (err) {
+      Findings.noteUnreadable();
+      hilog.error(DOMAIN, TAG, 'findings %{public}s', JSON.stringify(err));
+    }
+  }
+
+  private static writeFindings(text: string): void {
+    if (LiveStore.pref === undefined) {
+      throw new Error('台账尚未打开');
+    }
+    if (typeof text !== 'string' || text.length === 0) {
+      throw new Error('台账写入失败');
+    }
+    let previous = '';
+    let hadPrevious = false;
+    try {
+      let raw = LiveStore.pref.getSync('findings', '');
+      if (typeof raw === 'string') {
+        previous = raw;
+        hadPrevious = raw.length > 0;
+      }
+      LiveStore.pref.putSync('findings', text);
+      LiveStore.pref.flushSync();
+    } catch (err) {
+      LiveStore.restoreFindingText(hadPrevious, previous);
+      hilog.error(DOMAIN, TAG, 'findings %{public}s', JSON.stringify(err));
+      throw new Error('台账写入失败');
+    }
+  }
+
+  private static restoreFindingText(hadPrevious: boolean, previous: string): void {
+    if (LiveStore.pref === undefined) {
+      return;
+    }
+    try {
+      if (hadPrevious) {
+        LiveStore.pref.putSync('findings', previous);
+      } else {
+        LiveStore.pref.deleteSync('findings');
+      }
+      LiveStore.pref.flushSync();
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'findings rollback %{public}s', JSON.stringify(err));
+    }
   }
 
   private static async restoreShelf(): Promise<void> {
@@ -358,5 +638,45 @@ export class LiveStore {
       LiveStore.setStatus('记录写入失败');
       hilog.error(DOMAIN, TAG, 'events %{public}s', JSON.stringify(err));
     }
+  }
+}
+
+class ImageChoicePeek {
+  schema: string = '';
+  schemaVersion: string = '';
+  imageTag: string = '';
+  at: string = '';
+}
+
+function formatImageChoice(row: ImageChoice): string {
+  return '{\n' +
+    '  "schema": "' + IMAGE_CHOICE_SCHEMA + '",\n' +
+    '  "schemaVersion": "0.1",\n' +
+    '  "imageTag": "' + row.imageTag + '",\n' +
+    '  "at": "' + row.at + '"\n' +
+    '}\n';
+}
+
+function parseImageChoice(text: string): ImageChoice | undefined {
+  try {
+    let parsed = JSON.parse(text) as ImageChoicePeek;
+    if (!parsed || typeof parsed !== 'object' || parsed instanceof Array) {
+      return undefined;
+    }
+    if (parsed.schema !== IMAGE_CHOICE_SCHEMA || parsed.schemaVersion !== '0.1') {
+      return undefined;
+    }
+    if (parsed.imageTag !== 'base' && parsed.imageTag !== 'secure') {
+      return undefined;
+    }
+    if (typeof parsed.at !== 'string' || !isStamp(parsed.at)) {
+      return undefined;
+    }
+    let row = new ImageChoice();
+    row.imageTag = parsed.imageTag;
+    row.at = parsed.at;
+    return row;
+  } catch (err) {
+    return undefined;
   }
 }

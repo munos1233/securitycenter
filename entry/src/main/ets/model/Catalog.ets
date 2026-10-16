@@ -97,36 +97,6 @@ export class Catalog {
       '计划中的行为是读取未保护接口或敏感公共事件并展示。本应用不执行这件事。'
     ));
     rows.push(threat(
-      'TM-S1',
-      '信息泄露',
-      'S1',
-      'open',
-      '',
-      '',
-      'APP_DEMO_PLAN.md 场景池次选。存在性还要在官方镜像和对照镜像上分别确认。',
-      '计划中的行为是读取系统信息源并计数。本应用不读取这些路径。'
-    ));
-    rows.push(threat(
-      'TM-S2',
-      '服务滥用致缺陷',
-      'S2',
-      'open',
-      '',
-      '',
-      'APP_DEMO_PLAN.md 场景池备选。排在所有需要重演的环节之后。',
-      '计划中的行为是触发未保护组件异常。本应用不触发崩溃。'
-    ));
-    rows.push(threat(
-      'TM-D3',
-      '非平台授权安装',
-      'D3',
-      'open',
-      '',
-      '',
-      'APP_DEMO_PLAN.md 兜底 C 计划。样本只存不装。',
-      '安全版应拒绝六类签名样本。本应用只保存样本说明，不申请安装权限。'
-    ));
-    rows.push(threat(
       'TM-RES-01',
       '本阶段未覆盖的未知内核路径',
       '',
@@ -322,8 +292,6 @@ export class Catalog {
     let rows: ShowCue[] = [];
     rows.push(Catalog.oneCue('vanilla-demo', 'S3', 'succeeded', '不该看的已上屏', 'TM-S3'));
     rows.push(Catalog.oneCue('secure', 'S3', 'blocked', '系统拒绝并已入账', 'TM-S3'));
-    rows.push(Catalog.oneCue('vanilla-demo', 'S2', 'down', '服务已被打停', 'TM-S2'));
-    rows.push(Catalog.oneCue('secure', 'S2', 'alive', '拦住了服务还在', 'TM-S2'));
     return rows;
   }
 

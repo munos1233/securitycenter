@@ -7,7 +7,7 @@
       }
     },
     "arkOptions": {
-      "types": []
+      "types": ["./src/main/ets/types/ohos.bundle.installer"]
     }
   },
   "buildOptionSet": [

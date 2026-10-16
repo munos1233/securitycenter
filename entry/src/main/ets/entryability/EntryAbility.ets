@@ -14,7 +14,7 @@ export default class EntryAbility extends UIAbility {
     }
     hilog.info(DOMAIN, TAG, 'onCreate %{public}s', name + '/' + launchParam.launchReason.toString());
     try {
-      this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+      this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'colorMode %{public}s', JSON.stringify(err));
     }
@@ -44,8 +44,15 @@ export default class EntryAbility extends UIAbility {
       hilog.info(DOMAIN, TAG, 'loaded');
     });
     windowStage.getMainWindow().then((win: window.Window) => {
-      win.setWindowBackgroundColor('#FF0E2244');
-      win.setWindowKeepScreenOn(true);
+      win.setWindowBackgroundColor('#FFF1F3F5');
+      win.setWindowSystemBarProperties({
+        statusBarColor: '#FFF1F3F5',
+        statusBarContentColor: '#E5000000',
+        navigationBarColor: '#FFF1F3F5',
+        navigationBarContentColor: '#E5000000'
+      }).catch((err: Error) => {
+        hilog.error(DOMAIN, TAG, 'systemBar %{public}s', JSON.stringify(err));
+      });
     }).catch((err: Error) => {
       hilog.error(DOMAIN, TAG, 'window %{public}s', JSON.stringify(err));
     });

@@ -1,4 +1,7 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { acceptProbeRun } from '../probe/ProbeCodec';
+import { ProbeRun, isStamp } from '../probe/ProbeTypes';
+import { Finding, formatFindings, parseFindings } from '../report/Findings';
 import { BoardCard, BoardPair, BuildInfo, D4Event, ParseResult, defaultBoards, isHexTail, nowIso, validateEvent } from './D4Types';
 
 class BundlePeek {
@@ -117,6 +120,361 @@ function formatEvent(event: D4Event, pad: string): string {
   lines += inner + '"detail": ' + quote(event.detail) + '\n';
   lines += pad + '}';
   return lines;
+}
+
+const RECORDER: string = 'com.jinyinhu.securitycenter';
+
+export function encodeProbeEvents(findings: Finding[], runs: ProbeRun[], deviceId: string, imageVersion: string): D4Event[] {
+  let events: D4Event[] = [];
+  if (findings === undefined || runs === undefined) {
+    return events;
+  }
+  let version = cleanVersion(imageVersion);
+  if (version.length === 0) {
+    return events;
+  }
+  let device = cleanDevice(deviceId);
+  for (let i = 0; i < findings.length; i++) {
+    let event = encodeOne(findings[i], runs, device, version, events.length + 1);
+    if (event !== undefined) {
+      events.push(event);
+    }
+  }
+  return events;
+}
+
+function encodeOne(finding: Finding, runs: ProbeRun[], deviceId: string, imageVersion: string, seq: number): D4Event | undefined {
+  if (finding === undefined || finding.scenarioId === 'C1' || finding.findingId === 'FND-C1') {
+    return undefined;
+  }
+  let probeId = '';
+  if (finding.scenarioId === 'A1' && finding.findingId === 'FND-A1') {
+    probeId = 'P1';
+  } else if (finding.scenarioId === 'B1' && finding.findingId === 'FND-B1') {
+    probeId = 'P2';
+  } else {
+    return undefined;
+  }
+  let status = fileStatus(finding);
+  if (status.length === 0) {
+    return undefined;
+  }
+  let run = matchingRun(runs, probeId, status);
+  if (run === undefined) {
+    return undefined;
+  }
+  if (run.imageRole !== 'base' && run.imageRole !== 'secure') {
+    return undefined;
+  }
+  if (run.verdict !== 'hit' && run.verdict !== 'blocked') {
+    return undefined;
+  }
+  if (run.phrase.length === 0 || run.phrase.length > 12 || run.phrase.indexOf('\n') >= 0 || run.phrase.indexOf('\r') >= 0) {
+    return undefined;
+  }
+  let event = new D4Event();
+  event.schema = BuildInfo.schemaEvent;
+  event.schemaVersion = BuildInfo.schemaVersion;
+  event.eventId = eventIdFor(finding.findingId, run.createdAt);
+  event.seq = seq;
+  event.deviceId = deviceId;
+  event.imageRole = run.imageRole;
+  event.imageVersion = imageVersion;
+  event.imageHashTail = '';
+  event.appId = RECORDER;
+  event.appVersion = BuildInfo.appVersion;
+  event.scenarioId = finding.scenarioId;
+  event.outcome = run.verdict === 'hit' ? 'succeeded' : 'blocked';
+  event.phrase = run.phrase;
+  event.occurredAt = run.createdAt;
+  event.ruleId = clip(finding.ruleRef, 64);
+  event.baselineClause = '';
+  event.threatId = finding.findingId;
+  event.threatStatus = status;
+  event.registeredAt = status === 'mitigated' ? finding.registeredAt : clip(finding.registeredAt, 40);
+  event.evidenceNo = status === 'mitigated' ? finding.evidenceNo : '';
+  event.source = 'probe';
+  event.detail = clip(finding.title, 280);
+  if (validateEvent(event) !== '') {
+    return undefined;
+  }
+  return event;
+}
+
+function fileStatus(finding: Finding): string {
+  if (finding.status === 'open') {
+    return 'open';
+  }
+  if (finding.status !== 'fixed-by-patch') {
+    return '';
+  }
+  if (finding.registeredAt.length < 10 || finding.evidenceNo.length < 3) {
+    return '';
+  }
+  if (finding.registeredAt.indexOf('\n') >= 0 || finding.evidenceNo.indexOf('\n') >= 0) {
+    return '';
+  }
+  return 'mitigated';
+}
+
+function matchingRun(runs: ProbeRun[], probeId: string, status: string): ProbeRun | undefined {
+  let newest = latestRun(runs, probeId, '');
+  if (status !== 'mitigated' && newest !== undefined && newest.verdict === 'passive') {
+    return undefined;
+  }
+  if (status === 'mitigated') {
+    return latestSecureBlocked(runs, probeId);
+  }
+  let hit = latestRun(runs, probeId, 'hit');
+  if (hit !== undefined) {
+    return hit;
+  }
+  return latestRun(runs, probeId, 'blocked');
+}
+
+function latestSecureBlocked(runs: ProbeRun[], probeId: string): ProbeRun | undefined {
+  let best: ProbeRun | undefined = undefined;
+  for (let i = 0; i < runs.length; i++) {
+    let run = runs[i];
+    if (run === undefined || run.probeId !== probeId || run.verdict !== 'blocked' || run.imageRole !== 'secure') {
+      continue;
+    }
+    if (!acceptProbeRun(probeId, run).ok) {
+      continue;
+    }
+    if (best === undefined || run.createdAt >= best.createdAt) {
+      best = run;
+    }
+  }
+  return best;
+}
+
+function latestRun(runs: ProbeRun[], probeId: string, verdict: string): ProbeRun | undefined {
+  let best: ProbeRun | undefined = undefined;
+  for (let i = 0; i < runs.length; i++) {
+    let run = runs[i];
+    if (run === undefined || run.probeId !== probeId) {
+      continue;
+    }
+    if (verdict.length > 0 && run.verdict !== verdict) {
+      continue;
+    }
+    if (!acceptProbeRun(probeId, run).ok) {
+      continue;
+    }
+    if (best === undefined || run.createdAt >= best.createdAt) {
+      best = run;
+    }
+  }
+  return best;
+}
+
+function eventIdFor(findingId: string, at: string): string {
+  return clip('probe-' + findingId + '-' + at, 80);
+}
+
+function clip(value: string, max: number): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  if (value.length <= max) {
+    return value;
+  }
+  return value.substring(0, max);
+}
+
+function cleanDevice(deviceId: string): string {
+  let trimmed = '';
+  if (typeof deviceId === 'string') {
+    trimmed = deviceId.trim();
+  }
+  if (trimmed.length === 0 || trimmed.length > 64 || trimmed.indexOf('\n') >= 0 || trimmed.indexOf('\r') >= 0) {
+    return RECORDER;
+  }
+  return trimmed;
+}
+
+function cleanVersion(imageVersion: string): string {
+  if (typeof imageVersion !== 'string') {
+    return '';
+  }
+  let trimmed = imageVersion.trim();
+  if (trimmed.length === 0 || trimmed.length > 32 || trimmed.indexOf('\n') >= 0) {
+    return '';
+  }
+  return trimmed;
+}
+
+export class ArchiveRestore {
+  ok: boolean = false;
+  message: string = '';
+  findings: Finding[] = [];
+  runs: ProbeRun[] = [];
+}
+
+class RestoredPair {
+  finding: Finding = new Finding();
+  run: ProbeRun = new ProbeRun();
+}
+
+export function restoreArchive(events: D4Event[]): ArchiveRestore {
+  let result = new ArchiveRestore();
+  if (events === undefined || events.length === 0) {
+    result.message = '文件里没有记录';
+    return result;
+  }
+  let deviceId = events[0].deviceId;
+  let imageVersion = events[0].imageVersion;
+  let findings: Finding[] = [];
+  let runs: ProbeRun[] = [];
+  let seenA = false;
+  let seenB = false;
+  for (let i = 0; i < events.length; i++) {
+    let event = events[i];
+    if (event.deviceId !== deviceId || event.imageVersion !== imageVersion) {
+      result.message = '第 ' + (i + 1).toString() + ' 条与归档上下文不一致';
+      return result;
+    }
+    let built = rebuildOne(event);
+    if (built === undefined) {
+      result.message = '第 ' + (i + 1).toString() + ' 条不能还原成台账记录';
+      return result;
+    }
+    if (built.finding.findingId === 'FND-A1') {
+      if (seenA) {
+        result.message = '安装信任链重复';
+        return result;
+      }
+      seenA = true;
+    } else if (seenB) {
+      result.message = '沙箱隔离重复';
+      return result;
+    } else {
+      seenB = true;
+    }
+    findings.push(built.finding);
+    runs.push(built.run);
+  }
+  let ordered = orderFindings(findings);
+  if (parseFindings(formatFindings(ordered)) === undefined) {
+    result.message = '台账无法写入';
+    return result;
+  }
+  let encoded = encodeProbeEvents(ordered, runs, deviceId, imageVersion);
+  if (!sameGroup(events, encoded)) {
+    result.message = '不能还原成同一组记录';
+    return result;
+  }
+  result.ok = true;
+  result.findings = ordered;
+  result.runs = runs;
+  result.message = '已恢复 ' + events.length.toString() + ' 条';
+  return result;
+}
+
+function rebuildOne(event: D4Event): RestoredPair | undefined {
+  if (event.source !== 'probe' || (event.scenarioId !== 'A1' && event.scenarioId !== 'B1')) {
+    return undefined;
+  }
+  if (event.outcome !== 'succeeded' && event.outcome !== 'blocked') {
+    return undefined;
+  }
+  if (event.threatStatus !== 'open' && event.threatStatus !== 'mitigated') {
+    return undefined;
+  }
+  if (event.threatStatus === 'mitigated' && event.imageRole !== 'secure') {
+    return undefined;
+  }
+  if (event.imageRole !== 'base' && event.imageRole !== 'secure') {
+    return undefined;
+  }
+  if (!isStamp(event.occurredAt) || !isStamp(event.registeredAt)) {
+    return undefined;
+  }
+  if (event.threatStatus === 'open' && event.evidenceNo !== '') {
+    return undefined;
+  }
+  let probeId: 'P1' | 'P2' = event.scenarioId === 'A1' ? 'P1' : 'P2';
+  let finding = new Finding();
+  finding.findingId = probeId === 'P1' ? 'FND-A1' : 'FND-B1';
+  finding.scenarioId = event.scenarioId;
+  finding.title = probeId === 'P1' ? '安装信任链' : '沙箱隔离';
+  finding.affectedApp = 'com.jinyinhu.lakesidenotes';
+  finding.ruleRef = probeId === 'P1' ?
+    'hap_verify_v2.cpp:1010-1023; hap_verify_v2.cpp:960-988' :
+    'sandbox_helper.cpp:532-552; file_uri.cpp:154-200';
+  finding.registeredAt = event.registeredAt;
+  if (event.threatStatus === 'mitigated') {
+    finding.status = 'fixed-by-patch';
+    finding.evidenceNo = event.evidenceNo;
+    finding.patchRef = probeId === 'P1' ? '安全镜像已含该修复' : 'open';
+  } else {
+    finding.status = 'open';
+    finding.evidenceNo = '';
+    finding.patchRef = 'open';
+  }
+  let run = new ProbeRun();
+  run.probeId = probeId;
+  run.verdict = event.outcome === 'succeeded' ? 'hit' : 'blocked';
+  run.level = probeId === 'P1' ? 'L2' : 'L1';
+  run.imageRole = event.imageRole;
+  run.phrase = event.phrase;
+  run.createdAt = event.occurredAt;
+  if (!acceptProbeRun(probeId, run).ok) {
+    return undefined;
+  }
+  let pair = new RestoredPair();
+  pair.finding = finding;
+  pair.run = run;
+  return pair;
+}
+
+function orderFindings(findings: Finding[]): Finding[] {
+  let ordered: Finding[] = [];
+  for (let i = 0; i < findings.length; i++) {
+    if (findings[i].findingId === 'FND-A1') {
+      ordered.push(findings[i]);
+    }
+  }
+  for (let i = 0; i < findings.length; i++) {
+    if (findings[i].findingId === 'FND-B1') {
+      ordered.push(findings[i]);
+    }
+  }
+  return ordered;
+}
+
+function sameGroup(original: D4Event[], encoded: D4Event[]): boolean {
+  if (original.length !== encoded.length) {
+    return false;
+  }
+  for (let i = 0; i < original.length; i++) {
+    let found = false;
+    for (let j = 0; j < encoded.length; j++) {
+      if (sameEvent(original[i], encoded[j])) {
+        found = true;
+      }
+    }
+    if (!found) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sameEvent(left: D4Event, right: D4Event): boolean {
+  return left.eventId === right.eventId &&
+    left.deviceId === right.deviceId &&
+    left.imageRole === right.imageRole &&
+    left.imageVersion === right.imageVersion &&
+    left.scenarioId === right.scenarioId &&
+    left.outcome === right.outcome &&
+    left.phrase === right.phrase &&
+    left.occurredAt === right.occurredAt &&
+    left.threatStatus === right.threatStatus &&
+    left.registeredAt === right.registeredAt &&
+    left.evidenceNo === right.evidenceNo &&
+    left.source === right.source;
 }
 
 export function formatBundle(events: D4Event[]): string {

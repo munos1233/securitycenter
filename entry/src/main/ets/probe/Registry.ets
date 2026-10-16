@@ -1,15 +1,19 @@
 import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { Findings } from '../report/Findings';
 import { LiveStore } from '../model/LiveStore';
-import { acceptProbeRun, acceptSidecar, copySidecar } from './ProbeCodec';
+import { acceptProbeRun, acceptSidecar } from './ProbeCodec';
+import { InstallIntegrityProbe } from './InstallIntegrityProbe';
 import { SandboxIsolationProbe } from './SandboxIsolationProbe';
+import { SecCompPostureProbe } from './SecCompPostureProbe';
 import {
   Probe,
   ProbeId,
   ProbeResult,
   ProbeSource,
   SidecarReport,
-  copyProbeRun
+  copyProbeRun,
+  copySidecar
 } from './ProbeTypes';
 
 const DOMAIN = 0x4A59;
@@ -17,7 +21,7 @@ const TAG = 'ProbeRegistry';
 
 /**
  * 探针注册表。没有对应类文件时 all() 不放占位探针，也不写 hit / blocked。
- * 探针模块以后调用 install；EntryAbility 调用 registerAll 后才会出现在 all() 里。
+ * 探针模块以后调用 install。registerAll() 由 LiveStore.prepare() 调用，之后才会出现在 all() 里。
  */
 export class Registry {
   private static slotP1: ProbeSource | undefined = undefined;
@@ -43,7 +47,9 @@ export class Registry {
   }
 
   static registerAll(): void {
+    Registry.install('P1', new InstallProbeSource());
     Registry.install('P2', new SandboxSource());
+    Registry.install('P3', new PostureSource());
     Registry.armed = true;
     Registry.materialize();
   }
@@ -63,16 +69,31 @@ export class Registry {
       throw new Error(accepted.reason);
     }
     LiveStore.appendProbeRun(accepted.run);
+    try {
+      Findings.record(accepted.run);
+    } catch (err) {
+      LiveStore.setStatus('台账写入失败');
+      hilog.error(DOMAIN, TAG, 'finding %{public}s %{public}s', probe.id, errorText(err));
+    }
     return copyProbeRun(accepted.run);
   }
 
   static async runAll(ctx: common.UIAbilityContext,
     onEach: (result: ProbeResult) => void,
     onStart: (id: ProbeId) => void): Promise<ProbeResult[]> {
+    return Registry.runSome(ctx, [], onEach, onStart);
+  }
+
+  static async runSome(ctx: common.UIAbilityContext, ids: string[],
+    onEach: (result: ProbeResult) => void,
+    onStart: (id: ProbeId) => void): Promise<ProbeResult[]> {
     let probes = Registry.all();
     let done: ProbeResult[] = [];
     for (let i = 0; i < probes.length; i++) {
       let probe = probes[i];
+      if (ids.length > 0 && ids.indexOf(probe.id) < 0) {
+        continue;
+      }
       onStart(probe.id);
       let result: ProbeResult;
       try {
@@ -92,7 +113,7 @@ export class Registry {
         onEach(result);
       } catch (err) {
         hilog.error(DOMAIN, TAG, 'callback %{public}s failed: %{public}s', probe.id, errorText(err));
-        throw err;
+        throw new Error(errorText(err));
       }
     }
     return done;
@@ -160,8 +181,20 @@ function errorText(err: Object): string {
   return text;
 }
 
+class InstallProbeSource implements ProbeSource {
+  create(): Probe {
+    return new InstallIntegrityProbe();
+  }
+}
+
 class SandboxSource implements ProbeSource {
   create(): Probe {
     return new SandboxIsolationProbe();
+  }
+}
+
+class PostureSource implements ProbeSource {
+  create(): Probe {
+    return new SecCompPostureProbe();
   }
 }

@@ -58,7 +58,7 @@ export class ParseResult {
 }
 
 export class EventDraft {
-  imageRole: string = 'vanilla-demo';
+  imageRole: string = 'base';
   deviceId: string = '';
   imageVersion: string = '7.0.0.40';
   imageHashTail: string = '';
@@ -188,10 +188,16 @@ export function sourceLabel(source: string): string {
   if (source === 'show') {
     return '演示稿';
   }
+  if (source === 'probe') {
+    return '探针';
+  }
   return '未知来源';
 }
 
 export function roleLabel(role: string): string {
+  if (role === 'base') {
+    return '基础版';
+  }
   if (role === 'vanilla-demo') {
     return '普通版';
   }
@@ -226,6 +232,15 @@ export function scenarioLabel(scenarioId: string): string {
   }
   if (scenarioId === 'D3') {
     return 'D3 安装验签';
+  }
+  if (scenarioId === 'A1') {
+    return 'A1 安装信任链';
+  }
+  if (scenarioId === 'B1') {
+    return 'B1 沙箱隔离';
+  }
+  if (scenarioId === 'C1') {
+    return 'C1 安全组件姿态';
   }
   return scenarioId;
 }
@@ -339,8 +354,8 @@ export function validateEvent(event: D4Event): string {
   if (deviceError !== '') {
     return deviceError;
   }
-  if (!inSet(event.imageRole, ['vanilla-demo', 'secure'])) {
-    return '镜像角色只能是普通版或安全版';
+  if (!inSet(event.imageRole, ['vanilla-demo', 'secure', 'base'])) {
+    return '镜像角色只能是基础版、普通版或安全版';
   }
   let versionError = checkText(event.imageVersion, '镜像版本', 1, 32);
   if (versionError !== '') {
@@ -357,8 +372,8 @@ export function validateEvent(event: D4Event): string {
   if (appVersionError !== '') {
     return appVersionError;
   }
-  if (!inSet(event.scenarioId, ['S1', 'S2', 'S3', 'D3'])) {
-    return '场景只能是 S1、S2、S3 或 D3';
+  if (!inSet(event.scenarioId, ['S1', 'S2', 'S3', 'D3', 'A1', 'B1', 'C1'])) {
+    return '场景只能是 S1、S2、S3、D3、A1、B1 或 C1';
   }
   if (!inSet(event.outcome, ['succeeded', 'blocked', 'alive', 'down', 'unconfigured'])) {
     return '现场结果不在约定范围内';
@@ -391,8 +406,8 @@ export function validateEvent(event: D4Event): string {
   if (!inSet(event.threatStatus, ['open', 'residual', 'mitigated'])) {
     return '台账状态只能是待处理、残余或已缓解';
   }
-  if (!inSet(event.source, ['onsite', 'rehearsal', 'imported', 'show'])) {
-    return '来源只能是现场、版式样例、外部导入或演示稿';
+  if (!inSet(event.source, ['onsite', 'rehearsal', 'imported', 'show', 'probe'])) {
+    return '来源只能是现场、版式样例、外部导入、演示稿或探针';
   }
   if (event.registeredAt.length > 40 || event.evidenceNo.length > 64) {
     return '登记时点或依据编号过长';
